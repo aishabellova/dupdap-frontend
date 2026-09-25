@@ -14,7 +14,7 @@ jest.mock('@/lib/api', () => ({
 }));
 
 jest.mock('qrcode.react', () => ({
-  QRCodeSVG: () => <div data-testid="qrcode" />,
+  QRCodeSVG: ({ value }: { value: string }) => <div data-testid="qrcode" data-value={value} />,
 }));
 
 const mockGetByReference = paymentsApi.getByReference as jest.MockedFunction<typeof paymentsApi.getByReference>;
@@ -142,4 +142,49 @@ describe('PayPage — polling timer logic', () => {
       expect(mockGetByReference.mock.calls.length).toBe(callsAfterTerminal);
     },
   );
+});
+
+describe('PayPage — stellarUri construction', () => {
+  it('encodes the QR value as a web+stellar:pay URI with destination, amount, memo and memo_type', async () => {
+    mockGetByReference.mockResolvedValue({ data: PENDING_PAYMENT } as ReturnType<typeof paymentsApi.getByReference>);
+
+    const { getByTestId } = render(<PayPage params={defaultParams} />);
+
+    await act(async () => { await Promise.resolve(); });
+
+    const qr = getByTestId('qrcode');
+    expect(qr.getAttribute('data-value')).toBe(
+      'web+stellar:pay?destination=GADDR&amount=25&memo=MEMO&memo_type=text',
+    );
+  });
+
+  it('falls back to amountUsd when amountXlm is absent', async () => {
+    mockGetByReference.mockResolvedValue({
+      data: { ...PENDING_PAYMENT, amountXlm: undefined },
+    } as ReturnType<typeof paymentsApi.getByReference>);
+
+    const { getByTestId } = render(<PayPage params={defaultParams} />);
+
+    await act(async () => { await Promise.resolve(); });
+
+    const qr = getByTestId('qrcode');
+    expect(qr.getAttribute('data-value')).toBe(
+      'web+stellar:pay?destination=GADDR&amount=10&memo=MEMO&memo_type=text',
+    );
+  });
+
+  it('encodeURIComponent-escapes special characters in the memo', async () => {
+    mockGetByReference.mockResolvedValue({
+      data: { ...PENDING_PAYMENT, stellarMemo: 'a b&c=d/e?f' },
+    } as ReturnType<typeof paymentsApi.getByReference>);
+
+    const { getByTestId } = render(<PayPage params={defaultParams} />);
+
+    await act(async () => { await Promise.resolve(); });
+
+    const qr = getByTestId('qrcode');
+    expect(qr.getAttribute('data-value')).toBe(
+      'web+stellar:pay?destination=GADDR&amount=25&memo=a%20b%26c%3Dd%2Fe%3Ff&memo_type=text',
+    );
+  });
 });
