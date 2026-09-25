@@ -47,11 +47,12 @@ describe('redirectToLogin', () => {
       writable: true,
     });
 
-    redirectToLogin();
+    expect(() => redirectToLogin()).not.toThrow();
 
     // Stale handler must not be invoked
     expect(staleHandler).not.toHaveBeenCalled();
     // Must fall back to window.location.assign with encoded return path
+    expect(assign).toHaveBeenCalledTimes(1);
     expect(assign).toHaveBeenCalledWith('/auth/login?next=%2Fdashboard%2Fsettlements%3Fstatus%3Dpending');
   });
 });
