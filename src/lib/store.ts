@@ -47,6 +47,9 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({ token: state.token, merchant: state.merchant }),
       onRehydrateStorage: () => (state) => {
         clearLegacyAccessTokenKey();
+        // Mark hydration complete so the dashboard can stop showing its loading
+        // spinner. `state` is undefined when there is no persisted data yet
+        // (first-ever visit), so fall back to the store's own setter.
         if (state) {
           state._setHasHydrated(true);
         } else {
