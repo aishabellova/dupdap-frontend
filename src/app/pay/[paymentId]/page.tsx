@@ -112,7 +112,10 @@ export default function PayPage({ params }: { params: { paymentId: string } }) {
     );
   }
 
-  const stellarUri = `web+stellar:pay?destination=${encodeURIComponent(payment.stellarDepositAddress ?? '')}&amount=${encodeURIComponent(String(payment.amountXlm ?? payment.amountUsd))}&memo=${encodeURIComponent(payment.stellarMemo)}&memo_type=text`;
+  const hasAmountXlm = payment.amountXlm != null && String(payment.amountXlm).trim() !== '';
+  const stellarUri = hasAmountXlm
+    ? `web+stellar:pay?destination=${encodeURIComponent(payment.stellarDepositAddress ?? '')}&amount=${encodeURIComponent(String(payment.amountXlm))}&memo=${encodeURIComponent(payment.stellarMemo)}&memo_type=text`
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -139,18 +142,31 @@ export default function PayPage({ params }: { params: { paymentId: string } }) {
                 </div>
               )}
 
-              <div className="flex justify-center mb-4">
-                <div
-                  className="bg-white p-3 rounded-xl border border-gray-200"
-                  role="img"
-                  aria-label={`Stellar payment QR code for ${formatUsd(payment.amountUsd)}`}
-                >
-                  <QRCodeSVG value={stellarUri} size={160} />
+              {stellarUri ? (
+                <>
+                  <div className="flex justify-center mb-4">
+                    <div
+                      className="bg-white p-3 rounded-xl border border-gray-200"
+                      role="img"
+                      aria-label={`Stellar payment QR code for ${formatUsd(payment.amountUsd)}`}
+                    >
+                      <QRCodeSVG value={stellarUri} size={160} />
+                    </div>
+                  </div>
+                  <p className="text-center text-xs text-gray-500 mb-4">
+                    Scan with a Stellar wallet app, then approve USDC before deposit
+                  </p>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 mb-4 text-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
+                  <p className="text-sm font-semibold text-amber-800">Preparing your payment details…</p>
+                  <p className="text-xs text-amber-700">
+                    The crypto amount for this payment isn&apos;t ready yet. Please wait a moment — the QR code will appear once it&apos;s available.
+                  </p>
                 </div>
-              </div>
-              <p className="text-center text-xs text-gray-500 mb-4">
-                Scan with a Stellar wallet app, then approve USDC before deposit
-              </p>
+              )}
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs mb-4">
                 <p className="font-semibold text-blue-900 mb-1">Required customer flow</p>
                 <p className="text-blue-800">1) approve(escrow_contract, amount)</p>
@@ -180,23 +196,4 @@ export default function PayPage({ params }: { params: { paymentId: string } }) {
                   <code className="text-amber-900 font-bold text-sm break-all flex-1">{payment.stellarMemo}</code>
                   <button
                     onClick={() => copy(payment.stellarMemo, 'memo')}
-                    aria-label="Copy memo"
-                    className="shrink-0"
-                  >
-                    {copied === 'memo' ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-4">
-              {STATUS_ICONS[payment.status] ?? DEFAULT_STATUS_ICON}
-              <p className="mt-3 font-semibold capitalize">{payment.status}</p>
-              {pollWarning && <p className="text-xs text-amber-600 mt-2">{pollWarning}</p>}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+                    aria-label="Cop

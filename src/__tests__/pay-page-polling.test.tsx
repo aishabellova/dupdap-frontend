@@ -158,19 +158,19 @@ describe('PayPage — stellarUri construction', () => {
     );
   });
 
-  it('falls back to amountUsd when amountXlm is absent', async () => {
+  it('does not render the QR/deep link and surfaces a loading state when amountXlm is absent', async () => {
     mockGetByReference.mockResolvedValue({
       data: { ...PENDING_PAYMENT, amountXlm: undefined },
     } as ReturnType<typeof paymentsApi.getByReference>);
 
-    const { getByTestId } = render(<PayPage params={defaultParams} />);
+    const { queryByTestId, getByText } = render(<PayPage params={defaultParams} />);
 
     await act(async () => { await Promise.resolve(); });
 
-    const qr = getByTestId('qrcode');
-    expect(qr.getAttribute('data-value')).toBe(
-      'web+stellar:pay?destination=GADDR&amount=10&memo=MEMO&memo_type=text',
-    );
+    // The QR code must not be rendered with a USD figure substituted as the crypto amount.
+    expect(queryByTestId('qrcode')).toBeNull();
+    // A clear loading/error state should be surfaced instead.
+    expect(getByText(/amount/i)).toBeTruthy();
   });
 
   it('encodeURIComponent-escapes special characters in the memo', async () => {

@@ -64,16 +64,13 @@ describe('PayPage', () => {
     );
   });
 
-  it('falls back to amountUsd when amountXlm is missing', async () => {
+  it('does not render the QR code or deep link when amountXlm is missing', async () => {
     mockedGetByReference.mockResolvedValue({
       data: { ...basePayment, amountXlm: undefined },
     });
     render(<PayPage params={{ paymentId: 'ref_1' }} />);
 
-    const qr = await screen.findByTestId('qr-code');
-    expect(qr).toHaveAttribute(
-      'data-value',
-      'web+stellar:pay?destination=GDESTINATIONADDRESS123&amount=25&memo=memo-123&memo_type=text'
-    );
+    await waitFor(() => expect(screen.getByText('$25.00')).toBeInTheDocument());
+    expect(screen.queryByTestId('qr-code')).not.toBeInTheDocument();
   });
 });
