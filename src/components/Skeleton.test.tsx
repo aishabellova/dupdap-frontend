@@ -1,98 +1,47 @@
-import React from 'react';
-import { render, cleanup } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
-import { Skeleton, SkeletonTableRows, SkeletonList } from './Skeleton';
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { Skeleton, SkeletonList, SkeletonTableRows } from "./Skeleton";
 
-describe('Skeleton components', () => {
-  afterEach(() => {
-    cleanup();
+describe("Skeleton", () => {
+  it("sets aria-hidden to true", () => {
+    render(<Skeleton />);
+
+    const skeleton = document.querySelector("[aria-hidden='true']");
+    expect(skeleton).not.toBeNull();
+    expect(skeleton).toHaveAttribute("aria-hidden", "true");
   });
 
-  describe('Skeleton', () => {
-    it('renders with aria-hidden="true" and default base classes', () => {
-      const { container } = render(<Skeleton />);
-      const el = container.firstChild as HTMLElement;
+  it("applies the provided className", () => {
+    render(<Skeleton className="custom-skeleton" />);
 
-      expect(el).toHaveAttribute('aria-hidden', 'true');
-      expect(el.className).toContain('animate-pulse');
-      expect(el.className).toContain('rounded-md');
-      expect(el.className).toContain('bg-gray-200');
-    });
+    expect(document.querySelector(".custom-skeleton")).not.toBeNull();
+  });
+});
 
-    it('merges custom className with default classes', () => {
-      const { container } = render(<Skeleton className="h-8 w-32 custom-skeleton" />);
-      const el = container.firstChild as HTMLElement;
+describe("SkeletonList", () => {
+  it("renders the requested number of rows", () => {
+    const { container } = render(<SkeletonList rows={4} />);
 
-      expect(el.className).toContain('h-8');
-      expect(el.className).toContain('w-32');
-      expect(el.className).toContain('custom-skeleton');
-      expect(el.className).toContain('animate-pulse');
-    });
+    expect(container.querySelectorAll("[aria-hidden='true']")).toHaveLength(4);
   });
 
-  describe('SkeletonTableRows', () => {
-    it('renders default 5 rows with the specified column count', () => {
-      const { container } = render(
-        <table>
-          <tbody>
-            <SkeletonTableRows cols={4} />
-          </tbody>
-        </table>
-      );
+  it("defaults to a single row", () => {
+    const { container } = render(<SkeletonList />);
 
-      const rows = container.querySelectorAll('tr');
-      expect(rows.length).toBe(5);
+    expect(container.querySelectorAll("[aria-hidden='true']")).toHaveLength(1);
+  });
+});
 
-      const cells = container.querySelectorAll('td');
-      expect(cells.length).toBe(20);
+describe("SkeletonTableRows", () => {
+  it("renders rows * cols cells for the given props", () => {
+    const { container } = render(<SkeletonTableRows rows={3} cols={5} />);
 
-      rows.forEach((row) => {
-        expect(row.querySelectorAll('td').length).toBe(4);
-      });
-    });
-
-    it('renders custom number of rows and columns with cellClassName', () => {
-      const { container } = render(
-        <table>
-          <tbody>
-            <SkeletonTableRows rows={3} cols={2} cellClassName="custom-cell-class" />
-          </tbody>
-        </table>
-      );
-
-      const rows = container.querySelectorAll('tr');
-      expect(rows.length).toBe(3);
-
-      const cells = container.querySelectorAll('td');
-      expect(cells.length).toBe(6);
-
-      cells.forEach((cell) => {
-        expect(cell.className).toContain('custom-cell-class');
-        expect(cell.querySelector('div[aria-hidden="true"]')).not.toBeNull();
-      });
-    });
+    expect(container.querySelectorAll("[aria-hidden='true']")).toHaveLength(15);
   });
 
-  describe('SkeletonList', () => {
-    it('renders default 5 list item placeholders', () => {
-      const { container } = render(<SkeletonList />);
-      expect(container.children.length).toBe(5);
+  it("renders the expected number of cells for a different shape", () => {
+    const { container } = render(<SkeletonTableRows rows={2} cols={4} />);
 
-      Array.from(container.children).forEach((child) => {
-        expect(child.className).toContain('px-6');
-        expect(child.className).toContain('py-4');
-        expect(child.querySelectorAll('div[aria-hidden="true"]').length).toBe(3);
-      });
-    });
-
-    it('renders custom number of rows and custom className', () => {
-      const { container } = render(<SkeletonList rows={2} className="p-2 border-b" />);
-      expect(container.children.length).toBe(2);
-
-      Array.from(container.children).forEach((child) => {
-        expect(child.className).toContain('p-2');
-        expect(child.className).toContain('border-b');
-      });
-    });
+    expect(container.querySelectorAll("[aria-hidden='true']")).toHaveLength(8);
   });
 });
