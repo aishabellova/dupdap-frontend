@@ -120,7 +120,11 @@ export default function PayPage({ params }: { params: { paymentId: string } }) {
         <div className="p-4 xs:p-6 border-b border-gray-100 text-center">
           <p className="text-sm text-gray-500 font-medium">DupDub</p>
           <h1 className="text-3xl font-bold mt-1">{formatUsd(payment.amountUsd)}</h1>
-          {payment.description && <p className="text-sm text-gray-500 mt-1">{payment.description}</p>}
+          {payment.description && (
+            <p className="text-sm text-gray-500 mt-1 break-words whitespace-pre-wrap [overflow-wrap:anywhere]">
+              {payment.description}
+            </p>
+          )}
         </div>
 
         <div className="p-4 xs:p-6">
@@ -179,35 +183,18 @@ export default function PayPage({ params }: { params: { paymentId: string } }) {
                     aria-label="Copy memo"
                     className="shrink-0"
                   >
-                    {copied === 'memo' ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-amber-600" />}
+                    {copied === 'memo' ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
                   </button>
                 </div>
-                <p className="text-amber-700 mt-1">Payment will not be detected without the memo.</p>
               </div>
-              {pollWarning ? (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800 mt-4">
-                  {pollWarning}
-                </div>
-              ) : null}
             </>
           ) : (
             <div className="text-center py-4">
-              <div className="flex justify-center mb-3">{STATUS_ICONS[payment.status] ?? DEFAULT_STATUS_ICON}</div>
-              <p className="font-semibold text-gray-900 capitalize">{payment.status}</p>
-              <p className="text-sm text-gray-500 mt-1">
-                {payment.status === 'settled' && 'Payment complete. Thank you!'}
-                {payment.status === 'confirmed' && 'Payment detected. Processing settlement...'}
-                {payment.status === 'settling' && 'Converting to fiat and transferring...'}
-                {payment.status === 'failed' && 'Payment failed. Please contact the merchant.'}
-                {payment.status === 'expired' && 'This payment request has expired.'}
-                {!['settled', 'confirmed', 'settling', 'failed', 'expired'].includes(payment.status) && 'Checking payment status...'}
-              </p>
+              {STATUS_ICONS[payment.status] ?? DEFAULT_STATUS_ICON}
+              <p className="mt-3 font-semibold capitalize">{payment.status}</p>
+              {pollWarning && <p className="text-xs text-amber-600 mt-2">{pollWarning}</p>}
             </div>
           )}
-        </div>
-
-        <div className="px-6 pb-4 text-center text-xs text-gray-400">
-          Ref: {payment.reference}
         </div>
       </div>
     </div>
