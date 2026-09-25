@@ -185,6 +185,8 @@ The app is a standard Next.js app, so any platform that supports Next.js (Vercel
 
 ## Handsoff notes
 
+<!-- handsoff-issue-381 -->
+- #381: No test coverage exists for the forgot-password or reset-password pages
 <!-- handsoff-issue-380 -->
 - #380: No test coverage exists for LandingNav or the landing page
 <!-- handsoff-issue-293 -->
