@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Copy, Check, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { merchantApi } from '@/lib/api';
@@ -13,9 +13,12 @@ function maskApiKey(key: string): string {
   return `${key.slice(0, 4)}${'•'.repeat(Math.min(key.length - 8, 24))}${key.slice(-4)}`;
 }
 
+const EMPTY_FORM = { businessName: '', country: '', bankAccountNumber: '', bankCode: '', bankName: '' };
+
 export default function SettingsPage() {
   const { merchant } = useAuthStore();
-  const [form, setForm] = useState({ businessName: '', country: '', bankAccountNumber: '', bankCode: '', bankName: '' });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [savedForm, setSavedForm] = useState(EMPTY_FORM);
   const [currentScopes, setCurrentScopes] = useState<string[]>([]);
   const [selectedScopes, setSelectedScopes] = useState<string[]>(['payments:read', 'settlements:read']);
   const [saving, setSaving] = useState(false);
@@ -25,17 +28,25 @@ export default function SettingsPage() {
   const [generatingKey, setGeneratingKey] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  const isDirty = Object.keys(form).some(
+    (key) => form[key as keyof typeof form] !== savedForm[key as keyof typeof savedForm],
+  );
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
+
   useEffect(() => {
     merchantApi.profile()
       .then(({ data }) => {
         const apiKeyScopes = data.apiKeyScopes ?? [];
-        setForm({
+        const loaded = {
           businessName: data.businessName ?? '',
           country: data.country ?? '',
           bankAccountNumber: data.bankAccountNumber ?? '',
           bankCode: data.bankCode ?? '',
           bankName: data.bankName ?? '',
-        });
+        };
+        setForm(loaded);
+        setSavedForm(loaded);
         setCurrentScopes(apiKeyScopes);
         setSelectedScopes(apiKeyScopes.length > 0 ? apiKeyScopes : ['payments:read', 'settlements:read']);
       })
@@ -44,12 +55,45 @@ export default function SettingsPage() {
       });
   }, []);
 
+  // Warn on browser-level navigation (reload, tab close, external link) while dirty (#404)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isDirtyRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // Warn on in-app navigation (e.g. sidebar links) while dirty (#404)
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (!isDirtyRef.current) return;
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = (e.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('#') || anchor.target === '_blank' || anchor.hasAttribute('download')) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      if (!window.confirm('You have unsaved changes. Leave this page and discard them?')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener('click', handleClick, true);
+    return () => document.removeEventListener('click', handleClick, true);
+  }, []);
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setFieldErrors({});
     try {
       await merchantApi.update(form);
+      setSavedForm(form);
       toast.success('Profile updated');
     } catch (err: any) {
       const errors = err?.response?.data?.errors;
@@ -202,7 +246,7 @@ export default function SettingsPage() {
                 className="shrink-0 p-1 text-gray-400 hover:text-gray-200"
                 aria-label="Copy API key"
               >
-                {keyCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {keyCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
             <button
@@ -217,7 +261,7 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={generateKey}
-            disabled={generatingKey}
+            disabled={generatingKey || selectedScopes.length === 0}
             className="btn-primary"
           >
             {generatingKey ? 'Generating...' : 'Generate new API key'}
