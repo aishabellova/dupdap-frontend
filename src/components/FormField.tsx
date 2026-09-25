@@ -1,6 +1,6 @@
-import { useId } from 'react';
+import { ReactNode, useId } from 'react';
 
-interface FormFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface FormFieldProps {
   label: string;
   error?: string;
   labelClassName?: string;
