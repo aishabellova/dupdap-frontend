@@ -55,6 +55,16 @@ The access token is persisted in `localStorage` via Zustand. Any XSS vector can 
 - **Recommended long-term fix** — move to an `httpOnly`, `SameSite=Strict` session cookie issued by `dupdap-backend`, with the frontend never handling the raw JWT.
 - **`src/lib/utils.ts`** — shared formatting/className helpers (`clsx` + `tailwind-merge`).
 
+### Conventions
+
+Several helpers exist in more than one place in this codebase. To keep new work from adding a third copy, use the canonical source below and extend it in place rather than redefining it per-page:
+
+- **Error messages** — import `getErrorMessage` from `src/lib/errors.ts`. That is the canonical helper; a duplicate `getErrorMessage` exists elsewhere in the codebase and should not be used or extended. If you need to change error-message behavior, change it in `errors.ts`.
+- **Status colors/icons** — import `STATUS_COLORS`, `STATUS_ICONS`, and `DEFAULT_STATUS_COLOR` from `src/lib/utils.ts`. Do not redefine per-page status→color or status→icon maps; add new statuses to the shared maps in `utils.ts` so every page stays consistent.
+- **Destructive confirmations** — use the shared `ConfirmDialog` component rather than `window.confirm`. It matches the app's styling, is accessible, and keeps confirmation UX consistent across the dashboard.
+
+When in doubt, grep for the helper name first — if it already exists in `src/lib`, reuse it instead of writing a local copy.
+
 ### Customer payment flow (`/pay/[paymentId]`)
 
 1. Approve USDC allowance for the escrow contract (`approve(escrow_contract, amount)`)
@@ -155,20 +165,4 @@ This app is a pure client of [`dupdap-backend`](../dupdap-backend)'s REST API �
 - `paymentsApi` — create/list/get/stats for payments
 - `adminApi` — list/retry/approve settlements (admin views)
 
-Extend `api.ts` with additional grouped helpers (e.g. `settlementsApi`, `webhooksApi`, `merchantsApi`) as dashboard pages need them, rather than calling `api.get(...)` directly from components, to keep endpoint paths in one place.
-
-## Testing & linting
-
-```bash
-npm run lint      # next lint (ESLint, see .eslintrc.json)
-```
-
-There is no test suite in this repo yet — if you add one, wire it into this section and into CI.
-
-## Deployment
-
-```bash
-vercel --prod
-```
-
-The app is a standard Next.js app, so any platform that supports Next.js (Vercel, Railway, etc.) works. The only required runtime config is `NEXT_PUBLIC_API_URL` pointed at the deployed backend.
+Extend `api.ts` with additional grouped helpers (e.g. `settlementsApi`, `webhooksApi`) rather than calling Axios directly from components.
