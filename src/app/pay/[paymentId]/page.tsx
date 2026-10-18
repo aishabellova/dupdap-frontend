@@ -38,6 +38,14 @@ function formatRemaining(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+function getMerchantContact(payment: Payment): { name?: string; email?: string } {
+  const p = payment as any;
+  return {
+    name: p.merchantName ?? p.merchant?.name ?? undefined,
+    email: p.merchantEmail ?? p.merchant?.email ?? undefined,
+  };
+}
+
 export default function PayPage({ params }: { params: { paymentId: string } }) {
   const [payment, setPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -164,6 +172,55 @@ export default function PayPage({ params }: { params: { paymentId: string } }) {
     );
   }
 
+  const isExpired = payment.status === 'expired' || isExpiredByClock;
+
+  if (isExpired) {
+    const merchant = getMerchantContact(payment);
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="card w-full max-w-[92vw] xs:max-w-sm">
+          <div className="p-4 xs:p-6 border-b border-gray-100 text-center">
+            <p className="text-sm text-gray-500 font-medium">DupDub</p>
+            <h1 className="text-3xl font-bold mt-1">{formatUsd(payment.amountUsd)}</h1>
+            {payment.description && <p className="text-sm text-gray-500 mt-1 break-words">{payment.description}</p>}
+          </div>
+
+          <div className="p-4 xs:p-6 text-center">
+            <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+              <Clock className="w-8 h-8 text-gray-400" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">This payment has expired</h2>
+            <p className="text-sm text-gray-500 mt-2">
+              This payment link is no longer valid. Please contact the merchant to request a new payment link.
+            </p>
+
+            {(merchant.name || merchant.email) && (
+              <div className="mt-4 rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm text-gray-700">
+                <p className="font-medium text-gray-900 mb-1">Contact the merchant</p>
+                {merchant.name && <p className="break-words">{merchant.name}</p>}
+                {merchant.email && (
+                  <a
+                    href={`mailto:${merchant.email}`}
+                    className="text-brand-600 hover:underline break-all"
+                  >
+                    {merchant.email}
+                  </a>
+                )}
+              </div>
+            )}
+
+            <a
+              href="/dashboard/payments/new"
+              className="btn-primary inline-flex items-center justify-center w-full mt-6"
+            >
+              Create new payment
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const hasCryptoAmount = payment.amountXlm != null && payment.amountXlm > 0;
   const stellarUri = hasCryptoAmount
     ? `web+stellar:pay?destination=${encodeURIComponent(payment.stellarDepositAddress ?? '')}&amount=${encodeURIComponent(String(payment.amountXlm))}&memo=${encodeURIComponent(payment.stellarMemo)}&memo_type=text`
@@ -205,42 +262,21 @@ export default function PayPage({ params }: { params: { paymentId: string } }) {
                     className="bg-white p-6 rounded-xl border border-gray-200 flex flex-col items-center justify-center text-center space-y-2 w-44 h-44"
                   >
                     <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
-                    <p className="text-xs text-gray-500">Calculating crypto exchange rate…</p>
                   </div>
                 )}
               </div>
-              <p className="text-center text-xs text-gray-500 mb-4">
-                Scan with a Stellar wallet app, then approve USDC before deposit
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs mb-4">
-                <p className="font-semibold text-blue-900 mb-1">Required customer flow</p>
-                <p className="text-blue-800">1) approve(escrow_contract, amount)</p>
-                <p className="text-blue-800">2) deposit()</p>
-                <p className="text-blue-700 mt-1">
-                  Your wallet signs both steps. No private keys are shared with DupDub.
-                </p>
-              </div>
-
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs mb-3">
-                <p className="text-xs text-gray-500 mb-1">Deposit address (exact)</p>
-                <div className="flex items-center gap-2">
-                  <code className="text-sm font-mono font-bold break-all flex-1 text-gray-900">{payment.stellarDepositAddress}</code>
-                  <button
-                    onClick={() => copy(payment.stellarDepositAddress ?? '', 'address')}
-                    aria-label="Copy deposit address"
-                    className="shrink-0"
-                  >
-                    {copied === 'address' ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
-                  </button>
-                </div>
-              </div>
             </>
           ) : (
-            <div className="text-center py-6">
-              {STATUS_ICONS[payment.status] ?? DEFAULT_STATUS_ICON}
-              <p className="mt-3 text-sm font-medium text-gray-700 capitalize">{payment.status}</p>
-              {pollWarning && <p className="mt-2 text-xs text-amber-600">{pollWarning}</p>}
+            <div className="text-center">
+              <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+                {STATUS_ICONS[payment.status] ?? DEFAULT_STATUS_ICON}
+              </div>
+              <p className="text-sm text-gray-600 capitalize">{payment.status}</p>
             </div>
+          )}
+
+          {pollWarning && (
+            <p className="text-xs text-amber-600 text-center mt-4">{pollWarning}</p>
           )}
         </div>
       </div>
