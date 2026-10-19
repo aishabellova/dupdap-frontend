@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { track } from '@vercel/analytics';
 import { Clock, CheckCircle, XCircle, Loader2, Copy, Check, AlertTriangle } from 'lucide-react';
 import { paymentsApi } from '@/lib/api';
 import { formatUsd } from '@/lib/utils';
 import type { Payment } from '@/lib/types';
+import XlmEquivalent from '@/components/XlmEquivalent';
+import { OpenInWalletButtons } from '@/components/OpenInWalletButtons';
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
   pending: <Clock className="w-8 h-8 text-yellow-500" />,
@@ -54,6 +57,7 @@ export default function PayPage({ params }: { params: { paymentId: string } }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [pollWarning, setPollWarning] = useState<string>('');
   const pollNowRef = useRef<(() => void) | null>(null);
+  const qrViewedRef = useRef(false);
 
   useEffect(() => {
     let pollAttempts = 0;
@@ -141,6 +145,15 @@ export default function PayPage({ params }: { params: { paymentId: string } }) {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
+  // Track when the payment QR code is actually shown to the payer.
+  useEffect(() => {
+    if (qrViewedRef.current) return;
+    if (!payment || payment.status !== 'pending') return;
+    if (payment.amountXlm == null || payment.amountXlm <= 0) return;
+    qrViewedRef.current = true;
+    track('payment_qr_viewed', { paymentId: params.paymentId });
+  }, [payment, params.paymentId]);
+
   const copy = async (text: string, key: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -226,12 +239,23 @@ export default function PayPage({ params }: { params: { paymentId: string } }) {
     ? `web+stellar:pay?destination=${encodeURIComponent(payment.stellarDepositAddress ?? '')}&amount=${encodeURIComponent(String(payment.amountXlm))}&memo=${encodeURIComponent(payment.stellarMemo)}&memo_type=text`
     : null;
 
+  const handleFreighterPay = () => {
+    track('freighter_payment_initiated', { paymentId: params.paymentId });
+    if (stellarUri) {
+      window.location.href = stellarUri;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="payment-status-live-region">
+        Payment status: {payment.status}
+      </div>
       <div className="card w-full max-w-[92vw] xs:max-w-sm">
         <div className="p-4 xs:p-6 border-b border-gray-100 text-center">
           <p className="text-sm text-gray-500 font-medium">DupDub</p>
           <h1 className="text-3xl font-bold mt-1">{formatUsd(payment.amountUsd)}</h1>
+          <XlmEquivalent amountXlm={payment.amountXlm} updatedAt={payment.updatedAt} />
           {payment.description && <p className="text-sm text-gray-500 mt-1 break-words">{payment.description}</p>}
         </div>
 
@@ -265,18 +289,46 @@ export default function PayPage({ params }: { params: { paymentId: string } }) {
                   </div>
                 )}
               </div>
+              <p className="text-center text-xs text-gray-500 mb-4">
+                Scan with a Stellar wallet app, then approve USDC before deposit
+              </p>
+              {stellarUri && (
+                <OpenInWalletButtons
+                  payment={{
+                    destination: payment.stellarDepositAddress ?? '',
+                    amount: payment.amountXlm as number,
+                    memo: payment.stellarMemo,
+                  }}
+                />
+              )}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs mb-4">
+                <p className="font-semibold text-blue-900 mb-1">Required customer flow</p>
+                <p className="text-blue-800">1) approve(escrow_contract, amount)</p>
+                <p className="text-blue-800">2) deposit()</p>
+                <p className="text-blue-700 mt-1">
+                  Your wallet signs both steps. No private keys are shared with DupDub.
+                </p>
+              </div>
+
+              {stellarUri && (
+                <button
+                  type="button"
+                  onClick={handleFreighterPay}
+                  className="btn-primary w-full mb-3"
+                >
+                  Pay with Freighter
+                </button>
+              )}
             </>
           ) : (
-            <div className="text-center">
-              <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
-                {STATUS_ICONS[payment.status] ?? DEFAULT_STATUS_ICON}
-              </div>
+            <div className="text-center space-y-3">
+              {STATUS_ICONS[payment.status] ?? DEFAULT_STATUS_ICON}
               <p className="text-sm text-gray-600 capitalize">{payment.status}</p>
             </div>
           )}
 
           {pollWarning && (
-            <p className="text-xs text-amber-600 text-center mt-4">{pollWarning}</p>
+            <p className="text-xs text-amber-600 text-center mt-3">{pollWarning}</p>
           )}
         </div>
       </div>
